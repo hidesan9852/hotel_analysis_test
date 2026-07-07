@@ -2,13 +2,22 @@ import streamlit as st
 import requests
 import pandas as pd
 import anthropic
+import os
 
 st.title("🏨 ホテル収益改善＆ペルソナ提案ツール")
 
-# ── APIキーの設定 ──────────────────────────────────────────
-# ご自身のAPIキーに書き換えてください（または画面から入力させることも可能です）
-SERP_API_KEY = "f1f8fc43f8679a5f6b8f4d5d5195d22de0fa512f1f93017f1e24464c5a9c6d35"
-ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_API_KEY"
+# ── APIキーの設定（Streamlitの金庫から呼び出す） ────────────────
+api_key = os.environ.get("ANTHROPIC_API_KEY")
+if not api_key:
+    try:
+        api_key = st.secrets["ANTHROPIC_API_KEY"]
+    except:
+        st.error("⚠️ Anthropic APIキーが設定されていません。StreamlitのSecretsを確認してください。")
+        st.stop()
+
+# SerpApiキーも同様に直接書かずに設定するのがベストです
+# ※今回はテスト用として、もしSerpApiキーで警告が出なければ直接書いても一旦は動きます。
+SERP_API_KEY = "f1f8fc43f8679a5f6b8f4d5d5195d22de0fa512f1f93017f1e24464c5a9c6d35" 
 
 # ── 1. 競合データの取得設定 ─────────────────────────────────
 st.markdown("### STEP 1: 競合データの自動取得")
