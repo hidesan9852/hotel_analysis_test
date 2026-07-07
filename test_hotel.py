@@ -108,7 +108,7 @@ if st.button("🚀 AIで収益改善策を生成する", type="primary"):
                 
                 with client.messages.stream(
                     model="claude-sonnet-4-6",
-                    max_tokens=2048,
+                    max_tokens=4096,
                     system=SYSTEM_PROMPT,
                     messages=[{"role": "user", "content": user_message}],
                 ) as stream:
