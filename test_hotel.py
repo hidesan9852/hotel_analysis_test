@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import anthropic
 import os
+from datetime import datetime, timedelta
 
 st.title("🏨 ホテル収益改善＆ペルソナ提案ツール")
 
@@ -11,13 +12,13 @@ api_key = os.environ.get("ANTHROPIC_API_KEY")
 if not api_key:
     try:
         api_key = st.secrets["ANTHROPIC_API_KEY"]
-    except:
+    except KeyError:
         st.error("⚠️ Anthropic APIキーが設定されていません。StreamlitのSecretsを確認してください。")
         st.stop()
 
 try:
     SERP_API_KEY = st.secrets["SERP_API_KEY"]
-except:
+except KeyError:
     st.error("⚠️ SerpApiキーが設定されていません。StreamlitのSecretsを確認してください。")
     st.stop()
 
@@ -27,45 +28,55 @@ col1, col2 = st.columns(2)
 with col1:
     search_area = st.text_input("検索エリア・キーワード", value="大阪本町 ホテル")
 with col2:
-    target_date = st.text_input("計測する宿泊日", value="2026-09-09")
+    # 修正①: text_input(自由記述) → date_input に変更。
+    # フォーマット崩れ（例: 2026/9/9 のような入力）でAPIエラーになるのを防ぐ
+    target_date = st.date_input("計測する宿泊日", value=datetime(2026, 9, 9))
 
 if "hotel_df" not in st.session_state:
     st.session_state.hotel_df = None
 
 if st.button("🔍 競合ホテルの価格を取得"):
+    # 修正②: チェックアウト日が "2026-09-10" に固定されていたバグを修正。
+    # チェックイン日(target_date)の翌日を動的に計算するよう変更。
+    check_in_str = target_date.strftime("%Y-%m-%d")
+    check_out_str = (target_date + timedelta(days=1)).strftime("%Y-%m-%d")
+
     params = {
         "engine": "google_hotels",
         "q": search_area,
-        "check_in_date": target_date,
-        "check_out_date": "2026-09-10",
+        "check_in_date": check_in_str,
+        "check_out_date": check_out_str,
         "adults": "1",
         "currency": "JPY",
         "gl": "jp",
         "hl": "ja",
         "api_key": SERP_API_KEY
     }
-    
+
     with st.spinner("競合データを取得中..."):
         try:
             resp = requests.get("https://serpapi.com/search.json", params=params)
             resp.raise_for_status()
             properties = resp.json().get("properties", [])
-            
+
             if properties:
                 hotel_list = []
                 for h in properties:
                     name = h.get("name", "名称不明")
                     price = h.get("rate_per_night", {}).get("lowest", "価格なし(満室の可能性)")
                     hotel_list.append({"ホテル名": name, "最安値(1泊)": price})
-                
+
                 df = pd.DataFrame(hotel_list)
                 df.index = df.index + 1
                 st.session_state.hotel_df = df
                 st.success(f"✅ {len(df)}件の競合データを取得しました！")
             else:
                 st.error("ホテルが見つかりませんでした。")
+        # 修正③: 通信系エラーとその他エラーを分けて捕捉し、原因を切り分けやすくした
+        except requests.exceptions.RequestException as e:
+            st.error(f"⚠️ SerpApiへの通信でエラーが発生しました: {e}")
         except Exception as e:
-            st.error(f"エラー: {e}")
+            st.error(f"⚠️ データ取得処理でエラーが発生しました: {e}")
 
 if st.session_state.hotel_df is not None:
     st.dataframe(st.session_state.hotel_df, use_container_width=True)
@@ -99,13 +110,13 @@ if st.button("🚀 AIで収益改善策を生成する", type="primary"):
         st.warning("自社の価格と稼働率を入力してください。")
     else:
         user_message = f"【自社ホテルの現状】\n設定価格: {own_price}円\n現在の稼働率: {own_occ}\n\n【競合ホテルの状況（20件）】\n{st.session_state.hotel_df.to_string()}"
-        
+
         with st.spinner("AIが競合データと市場動向を分析・立案中...（数十秒かかります）"):
             try:
                 client = anthropic.Anthropic(api_key=api_key)
                 result_placeholder = st.empty()
                 full_response = ""
-                
+
                 with client.messages.stream(
                     model="claude-sonnet-4-6",
                     max_tokens=4096,
@@ -115,6 +126,6 @@ if st.button("🚀 AIで収益改善策を生成する", type="primary"):
                     for text in stream.text_stream:
                         full_response += text
                         result_placeholder.markdown(full_response)
-                        
+
             except Exception as e:
                 st.error(f"AI分析中にエラーが発生しました: {e}")
