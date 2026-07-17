@@ -35,13 +35,15 @@ with col2:
 if "hotel_df" not in st.session_state:
     st.session_state.hotel_df = None
 
-if st.button("🔍 競合ホテルの価格を取得"):
+include_vacation_rentals = st.checkbox("🏠 民泊（バケーションレンタル）も含めて調査する", value=True)
+
+if st.button("🔍 競合データを取得"):
     # 修正②: チェックアウト日が "2026-09-10" に固定されていたバグを修正。
     # チェックイン日(target_date)の翌日を動的に計算するよう変更。
     check_in_str = target_date.strftime("%Y-%m-%d")
     check_out_str = (target_date + timedelta(days=1)).strftime("%Y-%m-%d")
 
-    params = {
+    base_params = {
         "engine": "google_hotels",
         "q": search_area,
         "check_in_date": check_in_str,
@@ -53,25 +55,45 @@ if st.button("🔍 競合ホテルの価格を取得"):
         "api_key": SERP_API_KEY
     }
 
-    with st.spinner("競合データを取得中..."):
+    def fetch_properties(params):
+        """SerpApiのGoogle Hotelsエンジンを呼び出し、properties配列を返す"""
+        resp = requests.get("https://serpapi.com/search.json", params=params)
+        resp.raise_for_status()
+        return resp.json().get("properties", [])
+
+    with st.spinner("競合ホテル・民泊データを取得中..."):
         try:
-            resp = requests.get("https://serpapi.com/search.json", params=params)
-            resp.raise_for_status()
-            properties = resp.json().get("properties", [])
+            hotel_list = []
 
-            if properties:
-                hotel_list = []
-                for h in properties:
-                    name = h.get("name", "名称不明")
-                    price = h.get("rate_per_night", {}).get("lowest", "価格なし(満室の可能性)")
-                    hotel_list.append({"ホテル名": name, "最安値(1泊)": price})
+            # ① 通常のホテル検索（vacation_rentalsパラメータなし＝デフォルトでホテルのみ）
+            for h in fetch_properties(base_params):
+                hotel_list.append({
+                    "種別": "ホテル",
+                    "施設名": h.get("name", "名称不明"),
+                    "最安値(1泊)": h.get("rate_per_night", {}).get("lowest", "価格なし(満室の可能性)"),
+                })
 
+            # ② 民泊（バケーションレンタル）検索
+            # SerpApiのGoogle Hotels APIは vacation_rentals=true を渡すと
+            # ホテルではなく民泊のみの結果を返す仕様のため、別リクエストとして呼び出す
+            if include_vacation_rentals:
+                vr_params = {**base_params, "vacation_rentals": "true"}
+                for h in fetch_properties(vr_params):
+                    hotel_list.append({
+                        "種別": "民泊",
+                        "施設名": h.get("name", "名称不明"),
+                        "最安値(1泊)": h.get("rate_per_night", {}).get("lowest", "価格なし(満室の可能性)"),
+                    })
+
+            if hotel_list:
                 df = pd.DataFrame(hotel_list)
                 df.index = df.index + 1
                 st.session_state.hotel_df = df
-                st.success(f"✅ {len(df)}件の競合データを取得しました！")
+                n_hotel = sum(1 for r in hotel_list if r["種別"] == "ホテル")
+                n_vr = sum(1 for r in hotel_list if r["種別"] == "民泊")
+                st.success(f"✅ {len(df)}件のデータを取得しました！（ホテル {n_hotel}件・民泊 {n_vr}件）")
             else:
-                st.error("ホテルが見つかりませんでした。")
+                st.error("該当するデータが見つかりませんでした。")
         # 修正③: 通信系エラーとその他エラーを分けて捕捉し、原因を切り分けやすくした
         except requests.exceptions.RequestException as e:
             st.error(f"⚠️ SerpApiへの通信でエラーが発生しました: {e}")
@@ -92,7 +114,7 @@ with col4:
 
 # AIへの指示書（システムプロンプト）
 SYSTEM_PROMPT = """あなたは小規模ビジネスホテル専門の辣腕レベニューマネージャー兼マーケターです。
-提供された【自社データ】と【競合20件の価格データ】をもとに、以下の3点を論理的に提案してください。
+提供された【自社データ】と【競合（ホテル・民泊）の価格データ】をもとに、以下の3点を論理的に提案してください。
 
 1. 【ダイナミックプライシング提案】
 競合の価格帯（満室表示を含む）から現在の市場の需要逼迫度を推測し、自社の適正な販売価格をズバリ提案し、その根拠を解説してください。
@@ -109,7 +131,7 @@ if st.button("🚀 AIで収益改善策を生成する", type="primary"):
     elif not own_price or not own_occ:
         st.warning("自社の価格と稼働率を入力してください。")
     else:
-        user_message = f"【自社ホテルの現状】\n設定価格: {own_price}円\n現在の稼働率: {own_occ}\n\n【競合ホテルの状況（20件）】\n{st.session_state.hotel_df.to_string()}"
+        user_message = f"【自社ホテルの現状】\n設定価格: {own_price}円\n現在の稼働率: {own_occ}\n\n【競合の状況（ホテル・民泊 計{len(st.session_state.hotel_df)}件）】\n{st.session_state.hotel_df.to_string()}"
 
         with st.spinner("AIが競合データと市場動向を分析・立案中...（数十秒かかります）"):
             try:
