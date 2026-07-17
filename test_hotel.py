@@ -120,35 +120,68 @@ if st.session_state.hotel_df is not None:
 
 # ── 2. 自社データの入力とAI分析 ──────────────────────────────
 st.markdown("---")
-st.markdown("### STEP 2: 自社の状況入力とAI分析")
+st.markdown("### STEP 2: 自社の状況・強みの入力とAI分析")
 col3, col4 = st.columns(2)
 with col3:
     own_price = st.text_input("自社ホテルの現在の設定価格（円）", placeholder="例: 7500")
 with col4:
     own_occ = st.text_input("現在の予約稼働率（OCC）", placeholder="例: 40%")
 
+st.markdown("##### 🏨 自社ホテルの「強み・特徴」（あてはまるものを全てチェック）")
+
+# チェックボックスを3列に分けて綺麗に配置
+chk_col1, chk_col2, chk_col3 = st.columns(3)
+
+strengths_list = []
+
+with chk_col1:
+    if st.checkbox("🍳 朝食無料（手作り・焼き立て）"): strengths_list.append("朝食無料（手作り・焼き立て）")
+    if st.checkbox("♨️ 大浴場・サウナあり"): strengths_list.append("大浴場・サウナあり")
+    if st.checkbox("🚉 駅から徒歩5分以内"): strengths_list.append("駅から徒歩5分以内")
+
+with chk_col2:
+    if st.checkbox("🧴 充実したアメニティ"): strengths_list.append("充実したアメニティ")
+    if st.checkbox("💻 高速Wi-Fi・ワークスペース"): strengths_list.append("高速Wi-Fi・ワークスペース")
+    if st.checkbox("🍷 ウェルカムサービス"): strengths_list.append("ウェルカムサービス")
+
+with chk_col3:
+    if st.checkbox("🧹 清掃が徹底されている"): strengths_list.append("清掃が徹底されている")
+    if st.checkbox("😊 アットホームな接客"): strengths_list.append("アットホームな接客")
+    if st.checkbox("🅿️ 駐車場あり・安い"): strengths_list.append("駐車場あり・安い")
+
+# 独自の強みを追加できるフリー欄（任意）
+other_strength = st.text_input("その他、独自の強みがあれば入力（任意）", placeholder="例：レディースフロアを完備している")
+if other_strength:
+    strengths_list.append(other_strength)
+
+# チェックされたリストを「、」で繋いで一つの文字列にする
+own_strengths_str = "、".join(strengths_list)
+
 # AIへの指示書（システムプロンプト）
-SYSTEM_PROMPT = """あなたは小規模ビジネスホテル専門の辣腕レベニューマネージャー兼マーケターです。
-提供された【自社データ】と【競合（ホテル・民泊）の価格データ】をもとに、以下の3点を論理的に提案してください。
+SYSTEM_PROMPT = """あなたは小規模ビジネスホテル専門の辣腕レベニューマネージャー兼採用マーケターです。
+提供された【自社データ（強み・価格・稼働率）】と【競合（ホテル・民泊）の価格データ（外部環境）】を掛け合わせ、以下の3点を論理的に提案してください。
 
 1. 【ダイナミックプライシング提案】
 競合の価格帯（満室表示を含む）や評価スコア・レビュー数から現在の市場の需要逼迫度・ポジショニングを推測し、自社の適正な販売価格をズバリ提案し、その根拠を解説してください。
 
-2. 【新規ターゲットのペルソナ開発】
-激戦エリアにおいて価格競争に巻き込まれないための、新しい顧客ペルソナを2パターン提案してください。このペルソナは、将来的なホテルの独自性強化や、求職者に対する魅力的な「採用ブランディング」にも直結するような、具体的でエッジの効いたものにしてください。
+2. 【強みを活かした新規ペルソナ開発】
+入力された「自社の強み（内部環境）」と「競合の価格状況（外部環境）」の隙間を突く、新しい顧客ペルソナを2パターン提案してください。
+激戦エリアにおいて価格競争に巻き込まれないためのエッジの効いたターゲット設定とし、このペルソナ像が、将来的なホテルの独自性強化や、求職者に対する魅力的な「採用ブランディング」の軸としても機能するよう具体的に描写してください。
 
 3. 【具体的な宿泊プラン・アメニティ施策】
-提案したペルソナに向けた、明日から実行できる具体的な宿泊プランのタイトル案や、アメニティのアイデアを提案してください。"""
+提案したペルソナに向けた、自社の強みを最大化する明日から実行可能な宿泊プランのタイトル案や、アメニティ・サービス施策を提案してください。"""
 
 if st.button("🚀 AIで収益改善策を生成する", type="primary"):
     if st.session_state.hotel_df is None:
         st.warning("先にSTEP1で競合データを取得してください。")
     elif not own_price or not own_occ:
         st.warning("自社の価格と稼働率を入力してください。")
+    elif len(strengths_list) == 0:
+        st.warning("自社の強み・特徴を少なくとも1つ選択（または入力）してください。")
     else:
-        user_message = f"【自社ホテルの現状】\n設定価格: {own_price}円\n現在の稼働率: {own_occ}\n\n【競合の状況（ホテル・民泊 計{len(st.session_state.hotel_df)}件）】\n{st.session_state.hotel_df.to_string()}"
+        user_message = f"【自社ホテルの現状と強み】\n設定価格: {own_price}円\n現在の稼働率: {own_occ}\n自社の強み・特徴: {own_strengths_str}\n\n【競合の状況（ホテル・民泊 計{len(st.session_state.hotel_df)}件）】\n{st.session_state.hotel_df.to_string()}"
 
-        with st.spinner("AIが競合データと市場動向を分析・立案中...（数十秒かかります）"):
+        with st.spinner("AIが自社の強みと市場動向を掛け合わせ、戦略を立案中...（数十秒かかります）"):
             try:
                 client = anthropic.Anthropic(api_key=api_key)
                 result_placeholder = st.empty()
