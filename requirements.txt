@@ -2,3 +2,4 @@ streamlit==1.59.2
 requests==2.34.2
 pandas==2.3.3
 anthropic==0.117.0
+jpholiday==1.0.3
