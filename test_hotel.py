@@ -345,16 +345,21 @@ with chk_col1:
     if st.checkbox("🍳 朝食無料（手作り・焼き立て）"): strengths_list.append("朝食無料（手作り・焼き立て）")
     if st.checkbox("♨️ 大浴場・サウナあり"): strengths_list.append("大浴場・サウナあり")
     if st.checkbox("🚉 駅から徒歩5分以内"): strengths_list.append("駅から徒歩5分以内")
+    if st.checkbox("💻 高速Wi-Fi"): strengths_list.append("高速Wi-Fi")
+    if st.checkbox("🖥️ ワークスペース"): strengths_list.append("ワークスペース")
 
 with chk_col2:
     if st.checkbox("🧴 充実したアメニティ"): strengths_list.append("充実したアメニティ")
-    if st.checkbox("💻 高速Wi-Fi・ワークスペース"): strengths_list.append("高速Wi-Fi・ワークスペース")
-    if st.checkbox("🍷 ウェルカムサービス"): strengths_list.append("ウェルカムサービス")
-
-with chk_col3:
+    if st.checkbox("🍷 ウェルカムドリンク"): strengths_list.append("ウェルカムドリンク")
     if st.checkbox("🧹 清掃が徹底されている"): strengths_list.append("清掃が徹底されている")
     if st.checkbox("😊 アットホームな接客"): strengths_list.append("アットホームな接客")
     if st.checkbox("🅿️ 駐車場あり・安い"): strengths_list.append("駐車場あり・安い")
+
+with chk_col3:
+    if st.checkbox("🔑 セルフチェックアウト"): strengths_list.append("セルフチェックアウト")
+    if st.checkbox("🔐 キーボックス"): strengths_list.append("キーボックス")
+    if st.checkbox("🌅 アーリーチェックイン可能"): strengths_list.append("アーリーチェックイン可能")
+    if st.checkbox("🧳 チェックアウト後の無料荷物預かり"): strengths_list.append("チェックアウト後の無料荷物預かり")
 
 other_strength = st.text_input("その他、独自の強みがあれば入力（任意）", placeholder="例：レディースフロアを完備している")
 if other_strength:
