@@ -226,6 +226,13 @@ if st.session_state.hotel_df is not None:
 
 def summarize_competitors(df):
     """日別に取得した競合データを施設単位で集約する（AIへの入力を軽量化するため）"""
+    # コード更新前に取得した古いデータには無い列がある場合に備え、無ければ補完する
+    missing_cols = {"距離(km)": None, "エリア区分": "不明（再取得推奨）"}
+    for col, default in missing_cols.items():
+        if col not in df.columns:
+            df = df.copy()
+            df[col] = default
+
     summary = df.groupby(["種別", "施設名"]).agg(
         距離km=("距離(km)", "first"),
         エリア区分=("エリア区分", "first"),
